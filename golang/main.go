@@ -6,9 +6,9 @@ import (
 	"os"
 	"sync"
 
-	accountModule "github.com/HenriquePalote/transactions-processing-per-stacks/golang/account"
+	"github.com/HenriquePalote/transactions-processing-per-stacks/golang/account"
 	"github.com/HenriquePalote/transactions-processing-per-stacks/golang/database"
-	transactionModule "github.com/HenriquePalote/transactions-processing-per-stacks/golang/transaction"
+	"github.com/HenriquePalote/transactions-processing-per-stacks/golang/transaction"
 )
 
 func processFile(filename string, cb func(line string)) {
@@ -27,7 +27,6 @@ func processFile(filename string, cb func(line string)) {
 		wg.Add(1)
 		line := fileScanner.Text()
 		go func(line string) {
-			fmt.Println(line)
 			cb(line)
 			wg.Done()
 		}(line)
@@ -37,26 +36,15 @@ func processFile(filename string, cb func(line string)) {
 
 func exec() {
 	database := database.NewDatabase()
+	accountService := account.NewService(&database)
+	transaction := transaction.NewService(&database, accountService)
 
 	processFile("./seeds/account.seed.txt", func(line string) {
-		account, err := accountModule.NewAccount(line)
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-
-		database.AddAccount(account)
+		accountService.SeedAccount(line)
 	})
 
 	processFile("./seeds/transaction.seed.txt", func(line string) {
-		transaction, err := transactionModule.NewTransaction(line)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-
-		database.AddTransaction(transaction)
+		transaction.ProcessTransaction(line)
 	})
 
 	database.Print()
